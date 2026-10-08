@@ -1,0 +1,4 @@
+#!/bin/sh
+# Resolve the project beside this launcher so it can be moved as a unit.
+tool_root=$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).resolve().parent)' "$0") || exit 1
+exec "$tool_root/.venv/bin/python" "$tool_root/local_transcribe.py" "$@"

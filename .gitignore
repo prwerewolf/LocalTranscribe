@@ -1,0 +1,27 @@
+# Local runtime, downloads, recordings, and app state
+.venv/
+models/
+hf-cache/
+uv-cache/
+transcripts/
+samples/
+validation/
+.data/
+.build/
+LocalTranscribe.app/
+__pycache__/
+*.pyc
+*.log
+.DS_Store
+.env
+.env.*
+
+# Private development records and unregistered workflow drafts
+application-*.json
+application-*.md
+app-validation-*.json
+validation.md
+drafts/
+assets/icon-generation.json
+assets/icon-prompt.txt
+.private-*
