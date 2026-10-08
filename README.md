@@ -6,7 +6,35 @@ Turn audio and video recordings into text on your Mac. LocalTranscribe uses Whis
 
 **Free for noncommercial use.** No transcription subscription or API key. Source is available under the [PolyForm Noncommercial License 1.0.0](LICENSE); commercial use and commercial resale are not permitted by that license. Noncommercial sharing and modifications are allowed with the required notices.
 
-## Get started
+## Set up for your computer
+
+Choose [AI-assisted setup](#ai-assisted-setup-optional) for help configuring your computer, or follow the [standard setup](#standard-setup) yourself. The current release supports **Apple Silicon Macs with macOS 14 or later**. Intel Macs, Windows, and Linux require additional backend/native-app work.
+
+### AI-assisted setup (optional)
+
+1. Download or clone this GitHub repository into a local folder.
+2. Open that folder in a coding assistant with access to files and a terminal **on the computer where you will run the app**. Providing only the GitHub URL to a cloud chat does not give it access to your machine.
+3. Paste this prompt:
+
+```text
+Set up LocalTranscribe for this computer. Check its CPU architecture, OS version,
+available RAM, disk space, and installed dependencies. Follow the repository's
+setup and build instructions. Choose a compatible local Whisper model and suitable
+settings, making only the changes needed for this computer.
+
+Keep machine-specific settings in ignored local files. Do not commit personal
+names, home paths, hardware inventories, model downloads, logs, or recordings.
+Preserve the license and required notices, and keep existing recordings and
+transcripts intact. Use local inference without a paid API or recording uploads.
+
+Run the existing small checks and verify the app opens. Do not process recordings
+or start performance experiments unless I request them. If this computer is not
+supported, explain the required porting work before modifying the app.
+```
+
+AI assistance is optional; the standard setup below works without a coding assistant. Keep any local customization private unless you intentionally prepare and review a contribution.
+
+## Standard setup
 
 Requirements:
 

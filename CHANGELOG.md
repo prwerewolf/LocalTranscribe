@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added prominent optional AI-assisted setup instructions and a copyable prompt for configuring a supported computer without publishing machine details or starting recording jobs.
+
 ## 0.1.1
 
 Initial public source release:
