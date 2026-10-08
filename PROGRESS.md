@@ -7,6 +7,7 @@
 - TXT, timed TXT, SRT, VTT, structured JSON, and review-region exports.
 - Native Mac UI with file/folder selection, drag/drop, output selection, manual Start/Stop, and a persistent local queue.
 - App icon, reproducible setup/build helpers, neutral bundle identity, noncommercial licensing, and publication privacy checks.
+- Front-page AI-assisted setup instructions for local, machine-aware configuration with private settings and explicit recording controls.
 
 ## Verification
 
