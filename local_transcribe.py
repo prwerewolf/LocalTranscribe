@@ -15,8 +15,11 @@ import sys
 import tempfile
 import time
 from datetime import datetime, timezone
+import local_runtime as runtime
 
-VERSION = "0.1.1"
+VERSION = "0.2.0"
+# Keep existing checkpoint settings comparable across packaging-only releases.
+CHECKPOINT_VERSION = "0.1.1"
 ROOT = Path(__file__).resolve().parent
 MEDIA_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".m4a", ".mp3", ".wav", ".flac", ".aac"}
 
@@ -182,7 +185,7 @@ def transcribe_file(path, output, args):
     end = min(duration, start + args.duration_seconds) if args.duration_seconds else duration
     if start >= end:
         raise ValueError(f"Requested start is beyond the audio duration: {path}")
-    config = {"tool_version": VERSION, "model": model_identity(args.model), "language": args.language,
+    config = {"tool_version": CHECKPOINT_VERSION, "model": model_identity(args.model), "language": args.language,
               "chunk_seconds": args.chunk_seconds, "overlap_seconds": args.overlap_seconds,
               "start_seconds": start, "end_seconds": end, "initial_prompt": args.initial_prompt,
               "word_timestamps": True, "condition_on_previous_text": False,
@@ -298,6 +301,7 @@ def resolve_inputs(args):
 
 
 def main(argv=None):
+    runtime.configure_environment()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", action="version", version=VERSION)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -307,7 +311,7 @@ def main(argv=None):
         child.add_argument("inputs", nargs="*", type=Path)
         child.add_argument("--input-list", type=Path, help="JSON array of selected file paths")
     run.add_argument("--output", required=True, type=Path)
-    run.add_argument("--model", type=Path, default=ROOT / "models/whisper-turbo")
+    run.add_argument("--model", type=Path, default=runtime.model_directory())
     run.add_argument("--language", default="en")
     run.add_argument("--chunk-seconds", type=float, default=900)
     run.add_argument("--overlap-seconds", type=float, default=5)

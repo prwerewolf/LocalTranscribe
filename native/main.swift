@@ -22,7 +22,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
     var timer: Timer?
     var checking = false
     var attempts = 0
-    let root = Bundle.main.bundleURL.deletingLastPathComponent()
+    let resources = Bundle.main.bundleURL.appendingPathComponent("Contents/Resources")
+    var root: URL { resources.appendingPathComponent("app") }
+    var dataDirectory: URL {
+        if let override = ProcessInfo.processInfo.environment["LOCALTRANSCRIBE_DATA_DIR"] {
+            return URL(fileURLWithPath: override, isDirectory: true)
+        }
+        return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("LocalTranscribe", isDirectory: true)
+    }
     let address = URL(string: "http://127.0.0.1:8789/")!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -54,11 +62,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         NSApp.activate(ignoringOtherApps: true)
         web.loadHTMLString("<body style='font-family:-apple-system;padding:40px;color:#176b52'><h2>Opening LocalTranscribe…</h2></body>", baseURL: nil)
         let process = Process()
-        process.executableURL = root.appendingPathComponent(".venv/bin/python")
-        process.arguments = [root.appendingPathComponent("app.py").path]
+        process.executableURL = resources.appendingPathComponent("python/bin/python3")
+        process.arguments = ["-s", root.appendingPathComponent("app.py").path]
         process.currentDirectoryURL = root
-        let logURL = root.appendingPathComponent(".data/server.log")
-        try? FileManager.default.createDirectory(at: logURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        var environment = ProcessInfo.processInfo.environment
+        environment["PYTHONHOME"] = resources.appendingPathComponent("python").path
+        environment["PYTHONPATH"] = nil
+        environment["PYTHONDONTWRITEBYTECODE"] = "1"
+        environment["PYTHONNOUSERSITE"] = "1"
+        environment["PATH"] = resources.appendingPathComponent("tools/bin").path + ":/usr/bin:/bin:/usr/sbin:/sbin"
+        process.environment = environment
+        let logURL = dataDirectory.appendingPathComponent("server.log")
+        do { try FileManager.default.createDirectory(at: dataDirectory, withIntermediateDirectories: true) }
+        catch { showError("The local app data folder could not be opened: " + error.localizedDescription); return }
         if !FileManager.default.fileExists(atPath: logURL.path) { FileManager.default.createFile(atPath: logURL.path, contents: nil) }
         let log = try? FileHandle(forWritingTo: logURL)
         log?.seekToEndOfFile()
@@ -84,7 +100,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
                     self.web.load(URLRequest(url: self.address))
                 } else if self.attempts > 40 {
                     self.timer?.invalidate()
-                    self.showError("The local app server could not start. See .data/server.log in the LocalTranscribe project.")
+                    self.showError("The local app server could not start. See server.log in " + self.dataDirectory.path)
                 }
             }
         }.resume()
@@ -116,7 +132,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler
         decisionHandler(url?.host == "127.0.0.1" || url?.scheme == "about" ? .allow : .cancel)
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
-    func applicationWillTerminate(_ notification: Notification) { timer?.invalidate(); server?.terminate() }
+    func applicationWillTerminate(_ notification: Notification) {
+        timer?.invalidate()
+        if let server = server, server.isRunning { server.terminate(); server.waitUntilExit() }
+    }
 }
 
 let application = NSApplication.shared
