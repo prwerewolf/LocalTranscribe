@@ -9,6 +9,7 @@ import secrets
 import signal
 import subprocess
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import local_transcribe as engine
@@ -28,6 +29,8 @@ class Controller:
         self.process = None
         self.worker = None
         self.stop = threading.Event()
+        self.live = {}
+        self.batch = None
         saved = DATA / 'queue.json'
         self.data = json.loads(saved.read_text()) if saved.exists() else {
             'output': str(Path.home() / 'Downloads/LocalTranscribe Output'), 'jobs': []}
@@ -41,8 +44,35 @@ class Controller:
 
     def snapshot(self):
         with self.lock:
+            now = time.monotonic()
+            jobs = []
+            for job in self.data['jobs']:
+                item = dict(job)
+                live = self.live.get(job['id'])
+                if live:
+                    age = now - live.get('updated_at', now)
+                    interval = live.get('estimate_interval_seconds') or 0
+                    eta = live.get('eta_seconds')
+                    if age > max(15, 3 * interval) or self.stop.is_set():
+                        eta = None
+                    elif eta is not None:
+                        eta = max(1, eta - age)
+                    item.update(phase='stopping' if self.stop.is_set() else live['phase'],
+                                live_progress=live.get('percent'), eta_seconds=eta,
+                                elapsed_seconds=max(0, int(now - live['started_at'])))
+                jobs.append(item)
+            batch = None
+            if self.batch:
+                active = next((job for job in jobs if job['id'] == self.batch['current']), None)
+                eta = active.get('eta_seconds') if active else None
+                live = self.live.get(self.batch['current'], {})
+                rate = live.get('seconds_per_audio')
+                if eta is not None and rate is not None:
+                    eta += rate * sum(self.batch['remaining_audio'])
+                batch = {'index': self.batch['index'], 'count': self.batch['count'],
+                         'eta_seconds': eta, 'stopping': self.stop.is_set()}
             return {**self.data, 'active': bool(self.worker and self.worker.is_alive()),
-                    'jobs': [dict(job) for job in self.data['jobs']]}
+                    'jobs': jobs, 'batch': batch}
 
     def add(self, paths):
         expanded = []
@@ -71,6 +101,7 @@ class Controller:
             if not selected:
                 raise ValueError('Select at least one recording.')
             self.stop.clear()
+            self.batch = {'current': selected[0]['id'], 'index': 1, 'count': len(selected), 'remaining_audio': []}
             for job in selected:
                 job.update(status='Queued', error=None)
             self.save()
@@ -79,13 +110,21 @@ class Controller:
 
     def run(self, selected):
         try:
-            for job in selected:
+            for index, job in enumerate(selected):
                 if self.stop.is_set():
                     break
                 with self.lock:
                     output = Path(self.data['output']).expanduser().resolve()
                     output.mkdir(parents=True, exist_ok=True)
-                    job.update(status='Transcribing', output_folder=str(output / Path(job['path']).stem))
+                    folder = str(output / Path(job['path']).stem)
+                    if job['output_folder'] != folder:
+                        job['progress'] = 0
+                    job.update(status='Transcribing', output_folder=folder)
+                    self.live[job['id']] = {'phase': 'starting', 'started_at': time.monotonic()}
+                    self.batch.update(current=job['id'], index=index + 1,
+                                      remaining_audio=[item['duration'] * (1 - item['progress'] / 100)
+                                                       if item['output_folder'] == str(output / Path(item['path']).stem)
+                                                       else item['duration'] for item in selected[index + 1:]])
                     self.save()
                     command = ['/usr/bin/caffeinate', '-i', str(runtime.python_executable()), '-s', str(ROOT / 'local_transcribe.py'),
                                'run', job['path'], '--output', str(output)]
@@ -103,14 +142,27 @@ class Controller:
                         except json.JSONDecodeError:
                             continue
                         with self.lock:
+                            if item.get('event') == 'progress':
+                                self.live[job['id']].update({key: item.get(key) for key in
+                                    ('phase', 'percent', 'eta_seconds', 'seconds_per_audio', 'estimate_interval_seconds', 'total_seconds')})
+                                self.live[job['id']]['updated_at'] = time.monotonic()
+                                if item.get('saved_percent') is not None:
+                                    job['progress'] = item['saved_percent']
+                                # Live inference progress is not a saved checkpoint.
+                                continue
                             if item.get('event') == 'chunk_complete':
                                 job['progress'] = item['percent']
+                            if item.get('event') in ('interrupted', 'failed'):
+                                total = self.live[job['id']].get('total_seconds')
+                                if total and item.get('processed_seconds') is not None:
+                                    job['progress'] = 100 * item['processed_seconds'] / total
                             if item.get('event') in ('failed', 'file_error'):
                                 job['error'] = item.get('error')
                             self.save()
                 code = process.wait()
                 with self.lock:
                     self.process = None
+                    self.live.pop(job['id'], None)
                     job['status'] = 'Stopped' if self.stop.is_set() or code == 130 else 'Complete' if code == 0 else 'Failed'
                     if code == 0:
                         job['progress'] = 100
@@ -119,10 +171,12 @@ class Controller:
                     self.save()
         except Exception as error:
             with self.lock:
+                self.live.pop(job['id'], None)
                 job.update(status='Failed', error=str(error))
                 self.save()
         finally:
             with self.lock:
+                self.batch = None
                 for job in selected:
                     if job['status'] == 'Queued':
                         job['status'] = 'Ready'

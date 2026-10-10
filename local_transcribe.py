@@ -16,8 +16,9 @@ import tempfile
 import time
 from datetime import datetime, timezone
 import local_runtime as runtime
+from transcription_progress import ProgressReporter, observe_windows
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 # Keep existing checkpoint settings comparable across packaging-only releases.
 CHECKPOINT_VERSION = "0.1.1"
 ROOT = Path(__file__).resolve().parent
@@ -179,12 +180,14 @@ def model_identity(path):
 
 
 def transcribe_file(path, output, args):
+    progress = ProgressReporter(lambda **fields: event('progress', file=path.name, **fields))
     details = probe(path)
     duration = details["duration_seconds"]
     start = args.start_seconds
     end = min(duration, start + args.duration_seconds) if args.duration_seconds else duration
     if start >= end:
         raise ValueError(f"Requested start is beyond the audio duration: {path}")
+    progress.stage('checking_model')
     config = {"tool_version": CHECKPOINT_VERSION, "model": model_identity(args.model), "language": args.language,
               "chunk_seconds": args.chunk_seconds, "overlap_seconds": args.overlap_seconds,
               "start_seconds": start, "end_seconds": end, "initial_prompt": args.initial_prompt,
@@ -194,6 +197,7 @@ def transcribe_file(path, output, args):
     job.mkdir(parents=True, exist_ok=True)
     state_path = job / "state.json"
     with job_lock(job / ".lock"):
+        progress.stage('checking_saved_progress')
         if state_path.exists():
             state = json.loads(state_path.read_text())
             if state["source"] != details["source"] or state["config"] != config:
@@ -205,6 +209,7 @@ def transcribe_file(path, output, args):
                      "duration_seconds": end - start, "processed_seconds": 0.0,
                      "status": "pending", "created_at": now(), "chunks": []}
             save_json(state_path, state)
+        progress.configure(end - start, state['processed_seconds'])
         try:
             records = load_records(job, state)
         except Exception as error:
@@ -212,6 +217,7 @@ def transcribe_file(path, output, args):
             save_json(state_path, state)
             raise
         if state["status"] == "complete":
+            progress.stage('finishing')
             count = export(job, state, records, True)
             event("already_complete", file=path.name, output=str(job), segments=count)
             return state
@@ -223,6 +229,7 @@ def transcribe_file(path, output, args):
             os.environ["HF_HUB_OFFLINE"] = "1"
             os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
             os.environ["HF_HUB_DISABLE_IMPLICIT_TOKEN"] = "1"
+            progress.stage('loading_engine')
             import mlx_whisper
             while cursor < end - 0.001:
                 if source_identity(path) != state["source"]:
@@ -231,19 +238,26 @@ def transcribe_file(path, output, args):
                 extraction_start = max(start, cursor - args.overlap_seconds)
                 extraction_end = min(end, owned_end + args.overlap_seconds)
                 chunk_start = time.monotonic()
+                progress.stage('preparing_audio')
                 with tempfile.TemporaryDirectory(prefix="audio-", dir=job) as temporary:
                     wav = Path(temporary) / "chunk.wav"
                     subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin",
                                     "-ss", str(extraction_start), "-i", str(path), "-t", str(extraction_end - extraction_start),
                                     "-map", "0:a:0", "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(wav)],
                                    check=True, capture_output=True, text=True)
-                    raw = mlx_whisper.transcribe(str(wav), path_or_hf_repo=str(args.model.resolve()),
-                            language=args.language, word_timestamps=True,
-                            condition_on_previous_text=False, initial_prompt=args.initial_prompt,
-                            hallucination_silence_threshold=2.0, verbose=None)
+                    progress.stage('transcribing')
+                    def completed_window(fraction):
+                        absolute = extraction_start + fraction * (extraction_end - extraction_start)
+                        progress.advance(min(owned_end, max(cursor, absolute)) - start)
+                    with observe_windows(mlx_whisper.transcribe, completed_window):
+                        raw = mlx_whisper.transcribe(str(wav), path_or_hf_repo=str(args.model.resolve()),
+                                language=args.language, word_timestamps=True,
+                                condition_on_previous_text=False, initial_prompt=args.initial_prompt,
+                                hallucination_silence_threshold=2.0, verbose=None)
                 record = {"owned_start": cursor, "owned_end": owned_end, "extraction_start": extraction_start,
                           "elapsed_seconds": time.monotonic() - chunk_start,
                           "segments": owned_segments(raw, extraction_start, cursor, owned_end), "raw": raw}
+                progress.stage('saving_progress')
                 chunk_path = job / ".checkpoints" / f"{len(records):05d}.json"
                 save_json(chunk_path, record)
                 digest = hashlib.sha256(chunk_path.read_bytes()).hexdigest()
@@ -252,10 +266,12 @@ def transcribe_file(path, output, args):
                 state.update(processed_seconds=owned_end - start, updated_at=now())
                 save_json(state_path, state)
                 count = export(job, state, records, False)
+                progress.commit(owned_end - start, owned_end - cursor, record['elapsed_seconds'])
                 event("chunk_complete", file=path.name, processed_seconds=state["processed_seconds"],
                       total_seconds=end - start, percent=round(100 * state["processed_seconds"] / (end - start), 2),
                       elapsed_seconds=round(record["elapsed_seconds"], 2), segments=count)
                 cursor = owned_end
+            progress.stage('finishing')
             state.update(status="complete", updated_at=now(), completed_at=now())
             count = export(job, state, records, True)
             save_json(state_path, state)

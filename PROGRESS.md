@@ -10,6 +10,8 @@
 - Front-page AI-assisted setup instructions for local, machine-aware configuration with private settings and explicit recording controls.
 - Self-contained app packaging with the existing Python/MLX engine, pinned model, FFmpeg/ffprobe and native libraries, bundle-relative command-line launcher, and signatures.
 - External writable app state, non-overwriting source-queue migration, and preserved checkpoint/model identities for existing stopped jobs.
+- Live inference-window progress, named processing stages, elapsed time, and approximate active-recording/batch time remaining with warm-up and stale-estimate handling.
+- Saved/live progress separation, explicit stopping/resume presentation, and stable UI rows during one-second refreshes.
 
 ## Verification
 
@@ -18,6 +20,10 @@
 - Automated controller/runtime checks also cover Stop signaling/progress preservation, bundle-relative runtime/model paths, external state, source-queue preservation, and universal-binary dependency parsing.
 - A bundle moved outside the checkout completed real MLX inference on locally generated speech, stopped after a checkpoint, and resumed without rewriting completed checkpoint files. Bundled native imports/FFmpeg and signatures passed with a clean executable search path.
 - The final native window and file picker opened successfully; first-launch migration preserved the existing queue and output selection without starting personal recordings. Nine automated tests passed locally.
+- Progress-update tests cover measured-window estimates, exclusion of initial model-load/preparation delays, fresh Resume estimates, checkpoint-only saved progress, stale estimate suppression, and reporting-namespace restoration on interruption.
+- Sixteen automated tests passed, including recovery of the saved percentage when interruption arrives before a chunk-complete message. The updated bundle also passed real generated-speech Stop/Resume after moving outside the checkout.
+- A generated three-minute speech fixture produced eight intermediate updates and five measured estimates before its first checkpoint with unchanged decoder options. Synthetic UI states passed at 1020×780 and 740×600, including Stop, saved-progress rollback, long names, keyboard focus, and no console errors.
+- The mechanical UI scan flags pre-existing small/muted labels and a shadow warning outside the progress change; added progress text is 12px with a contrasting foreground. The existing visual identity is retained.
 - The native window, file picker, and manual selection controls were inspected. No automatic recording batch is part of setup or CI.
 - CI runs Python tests/privacy checks and native source validation. Models and recordings remain local.
 
@@ -26,7 +32,9 @@
 - Apple Silicon/macOS is the supported runtime; Intel/Windows/Linux inference backends are not implemented.
 - The built app is self-contained and movable. Source setup still needs build prerequisites; running/copying a completed app does not. Signing is ad-hoc and GitHub releases remain source-only; Developer ID/notarization and public binary redistribution are separate future work.
 - Bundled app state uses Application Support; source commands keep `.data/`. First launch beside the checkout imports an existing queue only when the destination is empty. `LOCALTRANSCRIBE_DATA_DIR` isolates verification and suppresses import.
-- The engine format version remains 0.1.1 while the app version is 0.2.0, preserving existing resume settings. Bundled model files and provenance are copied unchanged.
+- The checkpoint format version remains 0.1.1 while the app version is 0.3.0, preserving existing resume settings. Bundled model files and provenance are copied unchanged.
+- Progress observes the pinned engine's existing tqdm reporting namespace only during a transcription call and restores it on every exit. Decoder options and installed engine files are unchanged; implementations without this reporting interface fall back to stages/completed checkpoints.
+- Estimates use recent completed-window measurements (or actual completed chunk timings for short/silent chunks), exclude initial model loading from window speed, reset per run, and remain transient. A 99% display cap reserves the final completion state for successful exports.
 - The builder detects native-library macOS deployment targets, relocates non-system dylib links, keeps installed notices, and stages/signs before replacing the previous generated app.
 - The pinned MLX 0.32.3 native libraries require macOS 26.2. The Swift window's macOS 14 target must not be advertised as the whole app's minimum; older systems need a compatible inference/runtime environment.
 - The native UI uses loopback port 8789. Another process on that port can prevent startup; the app reports a local server error.

@@ -29,7 +29,7 @@ def build(contents, compiler, python):
         shutil.copy2(ROOT / name, resources / name)
     application = resources / 'app'
     application.mkdir()
-    for name in ('app.py', 'local_transcribe.py', 'local_runtime.py'):
+    for name in ('app.py', 'local_transcribe.py', 'local_runtime.py', 'transcription_progress.py'):
         shutil.copy2(ROOT / name, application / name)
     shutil.copytree(ROOT / 'ui', application / 'ui')
     print('Bundling the existing Python runtime and dependencies…', flush=True)
