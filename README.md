@@ -75,6 +75,10 @@ The builder preserves the previous generated app under `.build/previous-LocalTra
 
 Nothing starts automatically. **Stop** preserves completed checkpoints. Select a stopped recording and start again with the same source/settings/output folder to resume. Closing the app stops its active work.
 
+While a recording runs, the app shows its current stage, elapsed time, live progress, and the percentage saved to checkpoints. Progress updates as the existing engine finishes smaller audio windows, rather than waiting for a whole 15-minute chunk. The estimated time remaining appears after enough processing speed has been measured, adapts as work proceeds, and is approximate. The bottom bar also estimates the remaining time for the selected batch, using the current speed and remaining audio.
+
+The estimate is recalculated from fresh measurements on each run/resume and is hidden when recent progress is too stale to support it. Finishing exports and stopping use explicit status messages. On Stop, the bar returns to the last saved percentage; the unfinished portion of a chunk is processed again on Resume. Live progress and estimates are not saved as checkpoints.
+
 Each recording gets its own output folder:
 
 | File | Contents |
@@ -129,7 +133,7 @@ The builder copies the current transcription environment, resolves native depend
 
 `check_bundle.py` checks signatures, external native links and symlinks, bundled imports, FFmpeg, and the bundled CLI using a clean executable search path. Add `--transcribe-fixture` to generate local synthetic speech and verify real MLX transcription, Stop, checkpoint preservation, and Resume. No personal recording is used. Run that optional GPU check only when requested as part of development/release verification.
 
-CI checks Python behavior, stop handling, runtime paths/queue migration, the public-file privacy rules, and the native Swift source. It does not download models, build the full runtime, or transcribe recordings.
+CI checks Python behavior, live/saved progress separation, estimate warm-up/resume behavior, Stop signaling, runtime paths/queue migration, the public-file privacy rules, and the native Swift source. It does not download models, build the full runtime, or transcribe recordings.
 
 ## License
 

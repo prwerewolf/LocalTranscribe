@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.3.0
+
+- Report live progress from the current MLX engine's completed audio windows, plus checking/preparing/transcribing/saving/finishing stages and elapsed time.
+- Show approximate time remaining for the active recording and selected batch after measured processing speed is available; reset estimates on Resume and hide stale estimates.
+- Keep live progress separate from saved checkpoints, show the saved percentage on Stop, and preserve decoding settings, checkpoint compatibility, model identity, and exports.
+- Refresh progress once per second while preserving row/control identity and keyboard focus; show an explicit stopping state.
+
 ## 0.2.0
 
 - Build a self-contained movable Mac app containing Python, the existing MLX Whisper engine, its pinned model, FFmpeg/ffprobe, and native dependency libraries.
