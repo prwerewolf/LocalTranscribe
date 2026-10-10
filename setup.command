@@ -6,6 +6,11 @@ if [[ "$(uname -s)" != Darwin || "$(uname -m)" != arm64 ]]; then
   echo 'LocalTranscribe requires an Apple Silicon Mac.'
   exit 1
 fi
+IFS='.' read -r os_major os_minor os_patch <<< "$(sw_vers -productVersion)"
+if [[ "$os_major" -lt 26 || ( "$os_major" -eq 26 && "${os_minor:-0}" -lt 2 ) ]]; then
+  echo 'The pinned MLX runtime requires macOS 26.2 or later.'
+  exit 1
+fi
 for tool in uv ffmpeg ffprobe xcrun; do
   if ! command -v "$tool" >/dev/null; then
     echo "Missing prerequisite: $tool. See README.md for setup instructions."

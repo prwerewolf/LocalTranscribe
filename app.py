@@ -12,10 +12,13 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import local_transcribe as engine
+import local_runtime as runtime
 
 ROOT = Path(__file__).resolve().parent
-DATA = ROOT / '.data'
-DATA.mkdir(exist_ok=True)
+runtime.configure_environment()
+DATA = runtime.data_directory()
+DATA.mkdir(parents=True, exist_ok=True)
+runtime.migrate_legacy_queue(DATA)
 TOKEN = secrets.token_urlsafe(32)
 
 
@@ -84,7 +87,7 @@ class Controller:
                     output.mkdir(parents=True, exist_ok=True)
                     job.update(status='Transcribing', output_folder=str(output / Path(job['path']).stem))
                     self.save()
-                    command = ['/usr/bin/caffeinate', '-i', str(ROOT / '.venv/bin/python'), str(ROOT / 'local_transcribe.py'),
+                    command = ['/usr/bin/caffeinate', '-i', str(runtime.python_executable()), '-s', str(ROOT / 'local_transcribe.py'),
                                'run', job['path'], '--output', str(output)]
                     self.process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                                     text=True, bufsize=1, start_new_session=True)

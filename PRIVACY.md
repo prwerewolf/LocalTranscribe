@@ -6,7 +6,9 @@
 - Whisper inference uses a downloaded local model with Hugging Face offline mode enabled and telemetry disabled.
 - Initial setup downloads packages and public model weights. No recording is part of those requests.
 - The UI server binds to loopback only. Mutating requests require its ephemeral app token.
-- Queue state and logs can contain local file paths. They are stored under `.data/`, which is not published or tracked.
+- Queue state and logs can contain local file paths. The bundled app keeps them in `~/Library/Application Support/LocalTranscribe`; source-mode commands use ignored `.data/`. Neither is packaged inside the app or published.
+- First launch beside a source checkout can copy its existing queue into Application Support when no queue is already present. The original queue and transcript/checkpoint folders are preserved. `LOCALTRANSCRIBE_DATA_DIR` selects isolated state and disables that import.
+- The app bundles the interpreter, dependencies, decoder, and pinned public model. Build inputs exclude local queues, recordings, transcripts, Hugging Face caches, and development records. Python bytecode writing is disabled for bundled launches; other caches go into the private state folder.
 - Transcript and checkpoint files can contain the recording's content and source path. Keep them in a private output folder and review them before sharing.
 
 ## Public releases

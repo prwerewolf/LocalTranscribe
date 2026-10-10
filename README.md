@@ -8,7 +8,7 @@ Turn audio and video recordings into text on your Mac. LocalTranscribe uses Whis
 
 ## Set up for your computer
 
-Choose [AI-assisted setup](#ai-assisted-setup-optional) for help configuring your computer, or follow the [standard setup](#standard-setup) yourself. The current release supports **Apple Silicon Macs with macOS 14 or later**. Intel Macs, Windows, and Linux require additional backend/native-app work.
+Choose [AI-assisted setup](#ai-assisted-setup-optional) for help configuring your computer, or follow the [standard setup](#standard-setup) yourself. The current pinned MLX runtime requires **Apple Silicon and macOS 26.2 or later**. The native window targets macOS 14, but that alone does not establish inference-library compatibility. The builder detects and records the actual minimum macOS version of all bundled native libraries. Intel Macs, Windows, and Linux require additional backend/native-app work; older macOS versions require compatible runtime dependencies.
 
 ### AI-assisted setup (optional)
 
@@ -38,10 +38,10 @@ AI assistance is optional; the standard setup below works without a coding assis
 
 Requirements:
 
-- An Apple Silicon Mac with macOS 14 or later.
+- An Apple Silicon Mac with macOS 26.2 or later for the current pinned runtime.
 - [Homebrew](https://brew.sh), `uv`, and FFmpeg.
 - Xcode Command Line Tools for building the native window.
-- Several GB of free disk space for the isolated Python runtime and model.
+- Several GB of free disk space for the build environment and the self-contained app, including its model.
 - An internet connection for initial dependency/model downloads. Transcription then runs offline.
 
 Install the prerequisites if needed:
@@ -60,9 +60,11 @@ cd LocalTranscribe
 open LocalTranscribe.app
 ```
 
-You can also double-click `setup.command` in Finder. Setup creates a project-local Python environment, installs the pinned dependencies, downloads the pinned public model, and builds the native app. It does not install a Codex skill or change global Git/Python settings.
+You can also double-click `setup.command` in Finder. Setup creates a project-local Python environment, installs the pinned dependencies, downloads the pinned public model, and builds the native app. The app contains its own Python interpreter, dependencies, FFmpeg/ffprobe and their libraries, interface, and model. It does not install a Codex skill or change global Git/Python settings.
 
-Keep `LocalTranscribe.app` in this project folder. It uses the adjacent runtime, model, and source files. It is a local source build, not a standalone, notarized download.
+Open `LocalTranscribe.app` once beside the project to import an existing source-build queue, quit it, then move it into Applications or another folder. After building, it runs without the project folder, Homebrew, `uv`, or a separate Python installation. You can copy the complete app to another compatible Apple Silicon Mac; personal queues and transcripts stay on their original computer.
+
+The builder preserves the previous generated app under `.build/previous-LocalTranscribe.app` until the next build. This is a self-contained local build with ad-hoc signing. GitHub releases provide source; they do not provide a Developer ID-signed, notarized app download.
 
 ## Transcribe
 
@@ -99,13 +101,19 @@ Transcripts are machine output. Names, technical terms, and chunk seams can need
 
 Use `--input-list selected-files.json` for a JSON array of exact paths. Folder inputs include supported media directly inside that folder. Defaults are English, 15-minute chunks, and 5-second overlap. `--language` changes the transcription language; `--initial-prompt` supplies relevant spellings. `--start-seconds` and `--duration-seconds` select an excerpt. Changing a source or decoding settings requires a new output folder.
 
-Use `./local-transcribe run --help` for all options. The GUI currently uses the English defaults.
+Use `./local-transcribe run --help` for all options. The GUI currently uses the English defaults. The movable app also includes a command-line launcher:
+
+```sh
+'/Applications/LocalTranscribe.app/Contents/Resources/local-transcribe' run '/path/to/video.mp4' --output '/path/to/transcripts'
+```
 
 ## Privacy and local state
 
 The native window talks only to a loopback server at `127.0.0.1:8789`. Whisper inference runs with offline mode and telemetry disabled. No hosted inference service or API billing is used. The initial public model download connects to Hugging Face; dependency installation connects to package registries.
 
-Queue state, local paths, and logs stay in `.data/`. Dependencies, models, recordings, transcripts, generated app bundles, and local development records are excluded from Git. See [PRIVACY.md](PRIVACY.md).
+The bundled app stores queue state, logs, and caches in `~/Library/Application Support/LocalTranscribe`, outside the app. Source-mode commands keep the existing `.data/` layout. First launch beside the project copies an existing queue only when the destination queue is absent, preserving its original copy. Existing transcript/checkpoint folders and the engine's checkpoint format are preserved, including when the model is copied into the app.
+
+`LOCALTRANSCRIBE_DATA_DIR` optionally selects an alternate private state folder for isolated verification. It also disables automatic source-queue import. Dependencies, models, recordings, transcripts, generated app bundles, and local development records are excluded from Git. See [PRIVACY.md](PRIVACY.md).
 
 ## Development
 
@@ -114,9 +122,14 @@ python3 -m unittest discover -s tests -v
 python3 scripts/check_release.py
 python3 scripts/build_app.py --check-only
 python3 scripts/build_app.py
+python3 scripts/check_bundle.py --app '/path/to/moved/LocalTranscribe.app'
 ```
 
-The build uses a neutral bundle identifier and ad-hoc signing. CI checks Python behavior, the public-file privacy rules, and the native Swift source. It does not download models or transcribe recordings.
+The builder copies the current transcription environment, resolves native dependency links into the bundle, records versions/model identity in `Contents/Resources/bundle-manifest.json`, and signs the resulting app. `--python` selects an existing compatible transcription environment. Writable files are kept outside the signed bundle, including Python/Numba caches.
+
+`check_bundle.py` checks signatures, external native links and symlinks, bundled imports, FFmpeg, and the bundled CLI using a clean executable search path. Add `--transcribe-fixture` to generate local synthetic speech and verify real MLX transcription, Stop, checkpoint preservation, and Resume. No personal recording is used. Run that optional GPU check only when requested as part of development/release verification.
+
+CI checks Python behavior, stop handling, runtime paths/queue migration, the public-file privacy rules, and the native Swift source. It does not download models, build the full runtime, or transcribe recordings.
 
 ## License
 

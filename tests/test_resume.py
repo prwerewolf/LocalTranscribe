@@ -46,6 +46,7 @@ class ResumeTests(unittest.TestCase):
                 job = output / source.stem
                 state = json.loads((job / "state.json").read_text())
                 self.assertEqual(state["processed_seconds"], 45)
+                self.assertEqual(state['config']['tool_version'], '0.1.1')
                 self.assertEqual(state["status"], "failed")
                 first = job / state["chunks"][0]["file"]
                 first_bytes = first.read_bytes()
