@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Allow setup on macOS 14 or later instead of only macOS 26.2 or later. Setup installs the pinned MLX version's build for the Mac's own macOS, keeping the same engine version, model, and decoding settings. An app built on a newer macOS still requires that version, so run setup on each Mac with an older macOS.
+
 ## 0.3.0
 
 - Report live progress from the current MLX engine's completed audio windows, plus checking/preparing/transcribing/saving/finishing stages and elapsed time.
