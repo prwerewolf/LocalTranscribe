@@ -249,10 +249,11 @@ def transcribe_file(path, output, args):
                     def completed_window(fraction):
                         absolute = extraction_start + fraction * (extraction_end - extraction_start)
                         progress.advance(min(owned_end, max(cursor, absolute)) - start)
+                    # MLX Whisper encodes any non-None prompt, even blank text, as prompt tokens.
                     with observe_windows(mlx_whisper.transcribe, completed_window):
                         raw = mlx_whisper.transcribe(str(wav), path_or_hf_repo=str(args.model.resolve()),
                                 language=args.language, word_timestamps=True,
-                                condition_on_previous_text=False, initial_prompt=args.initial_prompt,
+                                condition_on_previous_text=False, initial_prompt=args.initial_prompt.strip() or None,
                                 hallucination_silence_threshold=2.0, verbose=None)
                 record = {"owned_start": cursor, "owned_end": owned_end, "extraction_start": extraction_start,
                           "elapsed_seconds": time.monotonic() - chunk_start,

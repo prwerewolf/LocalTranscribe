@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Allow setup on macOS 14 or later instead of only macOS 26.2 or later. Setup installs the pinned MLX version's build for the Mac's own macOS, keeping the same engine version, model, and decoding settings. An app built on a newer macOS still requires that version, so run setup on each Mac with an older macOS.
+- Fix lower accuracy at the start of each chunk. The default blank initial prompt reached the engine as a prompt token, which could drop or garble words in a chunk's first 30 seconds and made results vary between runs. A blank prompt now sends no prompt. Stopped jobs still resume, and their completed chunks are kept as they were.
 
 ## 0.3.0
 
