@@ -25,6 +25,7 @@
 - A generated three-minute speech fixture produced eight intermediate updates and five measured estimates before its first checkpoint with unchanged decoder options. Synthetic UI states passed at 1020×780 and 740×600, including Stop, saved-progress rollback, long names, keyboard focus, and no console errors.
 - The mechanical UI scan flags pre-existing small/muted labels and a shadow warning outside the progress change; added progress text is 12px with a contrasting foreground. The existing visual identity is retained.
 - The native window, file picker, and manual selection controls were inspected. No automatic recording batch is part of setup or CI.
+- Setup on macOS 15 installed the pinned MLX version's macOS 15 build and produced a bundle with a recorded minimum of macOS 15.0. Bundles built on macOS 15 and macOS 26 each passed real generated-speech Stop/Resume after moving to Applications, and the macOS 15 window and loopback server started. On identical 16 kHz audio of an 80-second generated speech recording, both bundles' engines produced the same transcript.
 - CI runs Python tests/privacy checks and native source validation. Models and recordings remain local.
 
 ## Decisions and environment
