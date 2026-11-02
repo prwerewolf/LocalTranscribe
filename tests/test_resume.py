@@ -29,8 +29,8 @@ class ResumeTests(unittest.TestCase):
             output = root / "output"
             calls = []
 
-            def decoding(_path, **_kwargs):
-                calls.append(1)
+            def decoding(_path, **kwargs):
+                calls.append(kwargs)
                 if len(calls) == 2:
                     raise RuntimeError("simulated inference interruption")
                 return {"segments": [{"start": 10, "end": 11, "text": " words",
@@ -47,6 +47,9 @@ class ResumeTests(unittest.TestCase):
                 state = json.loads((job / "state.json").read_text())
                 self.assertEqual(state["processed_seconds"], 45)
                 self.assertEqual(state['config']['tool_version'], '0.1.1')
+                # Jobs saved with the blank default keep resuming; the engine gets no prompt.
+                self.assertEqual(state['config']['initial_prompt'], '')
+                self.assertEqual([call['initial_prompt'] for call in calls], [None, None])
                 self.assertEqual(state["status"], "failed")
                 first = job / state["chunks"][0]["file"]
                 first_bytes = first.read_bytes()
@@ -70,6 +73,33 @@ class ResumeTests(unittest.TestCase):
                     tool.transcribe_file(source, output, args)
                 self.assertEqual(json.loads((job / "state.json").read_text())["status"], "failed")
                 self.assertEqual(len(calls), 4)
+
+    def test_only_written_prompts_reach_the_engine(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "original.mp4"
+            source.write_bytes(b"source preserved")
+            model = root / "model"
+            model.mkdir()
+            (model / "config.json").write_text("{}")
+            (model / "weights.npz").write_bytes(b"test fixture")
+            prompts = []
+
+            def decoding(_path, **kwargs):
+                prompts.append(kwargs["initial_prompt"])
+                return {"segments": [{"start": 1, "end": 2, "text": " words",
+                        "words": [{"start": 1, "end": 2, "word": " words"}]}]}
+
+            fixture = {"source": tool.source_identity(source), "duration_seconds": 10, "audio": [{}]}
+            with patch.object(tool, "probe", return_value=fixture), \
+                 patch.object(tool.subprocess, "run"), \
+                 patch.dict(sys.modules, {"mlx_whisper": types.SimpleNamespace(transcribe=decoding)}), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                for index, prompt in enumerate(("   ", "Kubernetes, PostgreSQL")):
+                    args = argparse.Namespace(model=model, start_seconds=0, duration_seconds=None, language="en",
+                            chunk_seconds=45, overlap_seconds=5, initial_prompt=prompt)
+                    tool.transcribe_file(source, root / f"output-{index}", args)
+            self.assertEqual(prompts, [None, "Kubernetes, PostgreSQL"])
 
     def test_subtitle_hour_rounding_and_lock(self):
         self.assertEqual(tool.timestamp(3599.9996), "01:00:00,000")

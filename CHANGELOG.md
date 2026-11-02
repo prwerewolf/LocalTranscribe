@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fix lower accuracy at the start of each chunk. The default blank initial prompt reached the engine as a prompt token, which could drop or garble words in a chunk's first 30 seconds and made results vary between runs. A blank prompt now sends no prompt. Stopped jobs still resume, and their completed chunks are kept as they were.
+
 ## 0.3.0
 
 - Report live progress from the current MLX engine's completed audio windows, plus checking/preparing/transcribing/saving/finishing stages and elapsed time.
