@@ -26,6 +26,7 @@
 - The mechanical UI scan flags pre-existing small/muted labels and a shadow warning outside the progress change; added progress text is 12px with a contrasting foreground. The existing visual identity is retained.
 - With the blank initial prompt, an 80-second generated speech recording lost and garbled words in its first 30-second window, with NaN log-probabilities and run-to-run variation from temperature fallback. Sending no prompt gave the same transcript on every run on macOS 15 and macOS 26, identical across both. A job stopped by the previous code resumed with the fix, kept its saved checkpoint unchanged, and completed.
 - The native window, file picker, and manual selection controls were inspected. No automatic recording batch is part of setup or CI.
+- Setup on macOS 15 installed the pinned MLX version's macOS 15 build and produced a bundle with a recorded minimum of macOS 15.0. Bundles built on macOS 15 and macOS 26 each passed real generated-speech Stop/Resume after moving to Applications, and the macOS 15 window and loopback server started. On identical 16 kHz audio of an 80-second generated speech recording, both bundles' engines produced the same transcript.
 - CI runs Python tests/privacy checks and native source validation. Models and recordings remain local.
 
 ## Decisions and environment
@@ -38,7 +39,7 @@
 - Progress observes the pinned engine's existing tqdm reporting namespace only during a transcription call and restores it on every exit. Decoder options and installed engine files are unchanged; implementations without this reporting interface fall back to stages/completed checkpoints.
 - Estimates use recent completed-window measurements (or actual completed chunk timings for short/silent chunks), exclude initial model loading from window speed, reset per run, and remain transient. A 99% display cap reserves the final completion state for successful exports.
 - The builder detects native-library macOS deployment targets, relocates non-system dylib links, keeps installed notices, and stages/signs before replacing the previous generated app.
-- The pinned MLX 0.32.3 native libraries require macOS 26.2. The Swift window's macOS 14 target must not be advertised as the whole app's minimum; older systems need a compatible inference/runtime environment.
+- Setup accepts macOS 14 or later. MLX 0.32.3 is published in macOS 14, 15, and 26 builds, and uv installs the build for the running macOS; the macOS 26 build's native libraries require macOS 26.2. Every other pinned native package has a macOS 14 or earlier build. The Swift window's macOS 14 target must not be advertised as the whole app's minimum; the builder records the bundled libraries' actual minimum, and Macs below it run their own setup.
 - The native UI uses loopback port 8789. Another process on that port can prevent startup; the app reports a local server error.
 - GUI transcription uses English defaults. CLI flags expose other language/excerpt/settings options.
 - No Codex skill is installed by the project or setup.

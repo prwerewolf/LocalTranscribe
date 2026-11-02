@@ -6,9 +6,10 @@ if [[ "$(uname -s)" != Darwin || "$(uname -m)" != arm64 ]]; then
   echo 'LocalTranscribe requires an Apple Silicon Mac.'
   exit 1
 fi
-IFS='.' read -r os_major os_minor os_patch <<< "$(sw_vers -productVersion)"
-if [[ "$os_major" -lt 26 || ( "$os_major" -eq 26 && "${os_minor:-0}" -lt 2 ) ]]; then
-  echo 'The pinned MLX runtime requires macOS 26.2 or later.'
+# uv installs the pinned MLX build for this macOS version; the builder records the app's resulting minimum.
+IFS='.' read -r os_major _ <<< "$(sw_vers -productVersion)"
+if [[ "$os_major" -lt 14 ]]; then
+  echo 'LocalTranscribe requires macOS 14 or later.'
   exit 1
 fi
 for tool in uv ffmpeg ffprobe xcrun; do
