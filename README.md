@@ -8,7 +8,7 @@ Turn audio and video recordings into text on your Mac. LocalTranscribe uses Whis
 
 ## Set up for your computer
 
-Choose [AI-assisted setup](#ai-assisted-setup-optional) for help configuring your computer, or follow the [standard setup](#standard-setup) yourself. The current pinned MLX runtime requires **Apple Silicon and macOS 26.2 or later**. The native window targets macOS 14, but that alone does not establish inference-library compatibility. The builder detects and records the actual minimum macOS version of all bundled native libraries. Intel Macs, Windows, and Linux require additional backend/native-app work; older macOS versions require compatible runtime dependencies.
+Choose [AI-assisted setup](#ai-assisted-setup-optional) for help configuring your computer, or follow the [standard setup](#standard-setup) yourself. LocalTranscribe requires **Apple Silicon and macOS 14 or later**. The pinned MLX version is published in separate builds for macOS 14, 15, and 26, and setup installs the build for the Mac's own macOS version. An app built on a newer macOS can therefore require that newer version: the macOS 26 build needs macOS 26.2. The builder detects and records the actual minimum macOS version of all bundled native libraries. For Macs on different macOS versions, run setup on each one. Intel Macs, Windows, and Linux require additional backend/native-app work.
 
 ### AI-assisted setup (optional)
 
@@ -38,7 +38,7 @@ AI assistance is optional; the standard setup below works without a coding assis
 
 Requirements:
 
-- An Apple Silicon Mac with macOS 26.2 or later for the current pinned runtime.
+- An Apple Silicon Mac with macOS 14 or later.
 - [Homebrew](https://brew.sh), `uv`, and FFmpeg.
 - Xcode Command Line Tools for building the native window.
 - Several GB of free disk space for the build environment and the self-contained app, including its model.
@@ -62,7 +62,7 @@ open LocalTranscribe.app
 
 You can also double-click `setup.command` in Finder. Setup creates a project-local Python environment, installs the pinned dependencies, downloads the pinned public model, and builds the native app. The app contains its own Python interpreter, dependencies, FFmpeg/ffprobe and their libraries, interface, and model. It does not install a Codex skill or change global Git/Python settings.
 
-Open `LocalTranscribe.app` once beside the project to import an existing source-build queue, quit it, then move it into Applications or another folder. After building, it runs without the project folder, Homebrew, `uv`, or a separate Python installation. You can copy the complete app to another compatible Apple Silicon Mac; personal queues and transcripts stay on their original computer.
+Open `LocalTranscribe.app` once beside the project to import an existing source-build queue, quit it, then move it into Applications or another folder. After building, it runs without the project folder, Homebrew, `uv`, or a separate Python installation. You can copy the complete app to another Apple Silicon Mac running at least the app's recorded minimum macOS (`minimum_macos` in `Contents/Resources/bundle-manifest.json`); for an older macOS, run setup on that Mac instead. Personal queues and transcripts stay on their original computer.
 
 The builder preserves the previous generated app under `.build/previous-LocalTranscribe.app` until the next build. This is a self-contained local build with ad-hoc signing. GitHub releases provide source; they do not provide a Developer ID-signed, notarized app download.
 
